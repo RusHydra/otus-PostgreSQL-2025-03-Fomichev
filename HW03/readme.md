@@ -316,7 +316,7 @@ server closed the connection unexpectedly
 	before or while processing the request.
 The connection to the server was lost. Attempting reset: Succeeded.
 
-# Подключение восстановилось автоматически, пробуем ещё развернуть
+# Подключение восстановилось автоматически, пробуем ещё раз выполнить селект
 postgres=# select * from test_table;
   id   |   example    
 -------+--------------
@@ -325,6 +325,8 @@ postgres=# select * from test_table;
 (2 rows)
 
 ```
+Успешно подключились к контейнеру сервера из контейнера клиента. И сразу видим, что данные на месте.
+
 
 ### 8. Проверить, что данные остались на месте
 
