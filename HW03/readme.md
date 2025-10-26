@@ -76,7 +76,7 @@ student@student-VirtualBox:/var/lib/postgres$ pwd
 /var/lib/postgres
 ```
 
-развернуть контейнер с PostgreSQL 15 смонтировав в него /var/lib/postgresql
+#### развернуть контейнер с PostgreSQL 15 смонтировав в него /var/lib/postgresql
 
 Создаём docker сеть:
 ```shell
@@ -116,6 +116,7 @@ fredboat/postgres          PostgreSQL 10.0 used in FredBoat's docker-co…   1
 ```
 
 Загружаем последнюю версию postgres
+
 ```shell
 student@student-VirtualBox:/var/lib/postgres$ sudo docker pull postgres
 Using default tag: latest
@@ -150,7 +151,7 @@ hello-world   latest    1b44b5a3e06a   2 months ago   10.1kB
 Запускаем контейнер, устанавливаем пароль, пробрасываем порт и монтируем каталог /var/lib/postgres для данных:
 
 ```shell
-sudo docker run --name postgres -e POSTGRES_PASSWORD=***** -d -p 5432:5432 -v /var/lib/postgres:/var/lib/postgresql/data postgres:latest
+sudo docker run --name postgres-srv -e POSTGRES_PASSWORD=***** -d -p 5432:5432 -v /var/lib/postgres:/var/lib/postgresql/data postgres:latest
 2eece5a9aef9f4a81bfc3858f1a54353ed1802432b2cd20140a004d5ae0bc859
 ```
 
@@ -196,8 +197,139 @@ sudo docker rm postgres
 sudo mkdir -p /var/lib/postgresql
 sudo chmod 755 /var/lib/postgresql
 
-# Запускаем с исправленным путем
-sudo docker run --name postgres -e POSTGRES_PASSWORD=Oracle4U -d -p 5432:5432 -v /var/lib/postgresql:/var/lib/postgresql postgres:latest
+# Запускаем с исправленным путем (заодно добавляем запуск в сети pg-net, на предыдущем шаге пропустил)
+sudo docker run --name postgres-srv --network pg-net -e POSTGRES_PASSWORD=Oracle4U -d -p 5432:5432 -v /var/lib/postgresql:/var/lib/postgresql postgres:latest
 ```
 
 ![Контейнер с сервером запущен](img/pg_server_started.png)
+
+#### развернуть контейнер с клиентом postgres
+
+```shell
+sudo docker run -it --rm --network pg-net --name pg-client postgres:latest psql -h postgres-srv -U postgres
+```
+
+Проверяем, что контейнер postgres-srv запущен в сети pg-net
+
+```shell
+root@student-VirtualBox:/var/lib/postgresql# sudo docker network inspect pg-net | grep -A 10 "Containers"
+        "Containers": {
+            "3a995cc18cbaea37730aa7939df7353eda6ed6f83c6c8d1fd4e68d866f8b960c": {
+                "Name": "postgres-srv",
+                "EndpointID": "8b2d6d5179e601566a915836310c1eaa251f1622a97a2f01b7aca214858b81dd",
+                "MacAddress": "52:6e:9f:ac:58:a8",
+                "IPv4Address": "172.18.0.2/16",
+                "IPv6Address": ""
+            }
+        },
+        "Options": {},
+        "Labels": {}
+```
+
+#### подключится из контейнера с клиентом к контейнеру с сервером и сделать таблицу с парой строк
+
+```shell`
+sudo docker run -it --rm --network pg-net --name pg-client postgres:latest psql -h postgres-srv -U postgres
+Password for user postgres: 
+psql (18.0 (Debian 18.0-1.pgdg13+3))
+Type "help" for help.
+
+postgres=# select version();
+                                                      version                                                       
+--------------------------------------------------------------------------------------------------------------------
+ PostgreSQL 18.0 (Debian 18.0-1.pgdg13+3) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+(1 row)
+```
+
+Создаём таблицу и наполняем данными в бд postgres:
+
+```shell
+postgres=# CREATE TABLE test_table (id CHARACTER VARYING(5), example CHARACTER VARYING(30));
+CREATE TABLE
+postgres=# INSERT INTO test_table VALUES ('10000', 'first_exmpl');
+INSERT 0 1
+postgres=# INSERT INTO test_table VALUES ('20000', 'second_exmpl');
+INSERT 0 1
+```
+
+![Таблица с данными создана](img/test_table.png)
+
+#### подключится к контейнеру с сервером с ноутбука/компьютера извне инстансов ЯО/места установки докера
+
+Переключаем в настройках Virtual Box для сетевого адаптера режим подключения в Bridge и перезапускаем VM.
+Проверяем адрес виртуальной машины:
+
+```shell
+student@student-VirtualBox:~$ hostname -I
+192.168.50.18 172.18.0.1 172.17.0.1 
+```
+
+В хостовой машине проверяем доступ к ВМ и порту 5432:
+```shell
+telnet 192.168.50.18 5432
+```
+
+Доступ есть. Настраиваем подключение в Dbeaver и подключаемся.
+
+![Подключение из хост ОС](img/host_os_connected.png)
+
+Нашли созданную таблицу с данными, все ок.
+
+#### удалить контейнер с сервером
+
+```shell
+# Смотрим запущенные контейнеры:
+
+student@student-VirtualBox:~$ sudo docker ps
+CONTAINER ID   IMAGE             COMMAND                  CREATED             STATUS          PORTS                                         NAMES
+7ec858810ece   postgres:latest   "docker-entrypoint.s…"   24 minutes ago      Up 24 minutes   5432/tcp                                      pg-client
+3a995cc18cba   postgres:latest   "docker-entrypoint.s…"   About an hour ago   Up 34 minutes   0.0.0.0:5432->5432/tcp, [::]:5432->5432/tcp   postgres-srv
+
+# Останавливаем и удаляем контейнер postgres-srv
+student@student-VirtualBox:~$ sudo docker stop postgres-srv
+postgres-srv
+student@student-VirtualBox:~$ sudo docker rm 3a995cc18cba
+3a995cc18cba
+student@student-VirtualBox:~$ sudo docker ps
+CONTAINER ID   IMAGE             COMMAND                  CREATED          STATUS          PORTS      NAMES
+7ec858810ece   postgres:latest   "docker-entrypoint.s…"   27 minutes ago   Up 27 minutes   5432/tcp   pg-client
+
+# Создаём заново контейнер postgres-srv
+student@student-VirtualBox:~$ sudo docker run --name postgres-srv --network pg-net -e POSTGRES_PASSWORD=Oracle4U -d -p 5432:5432 -v /var/lib/postgresql:/var/lib/postgresql postgres:latest
+6e53a75c60cffc1115da16e12a83fe5d3d7e7ec6b052c2234b3d9648533d813c
+student@student-VirtualBox:~$ sudo docker ps
+CONTAINER ID   IMAGE             COMMAND                  CREATED          STATUS          PORTS                                         NAMES
+6e53a75c60cf   postgres:latest   "docker-entrypoint.s…"   4 seconds ago    Up 3 seconds    0.0.0.0:5432->5432/tcp, [::]:5432->5432/tcp   postgres-srv
+7ec858810ece   postgres:latest   "docker-entrypoint.s…"   30 minutes ago   Up 30 minutes   5432/tcp                                      pg-client
+```
+Контейнер создан с тем же именем, но с другим ID.
+
+#### подключится снова из контейнера с клиентом к контейнеру с сервером
+
+```shell
+# Из запушенной сессии в соседнем терминале пробуем выполнить селект
+
+postgres-# select * from test_table;
+FATAL:  terminating connection due to administrator command
+server closed the connection unexpectedly
+	This probably means the server terminated abnormally
+	before or while processing the request.
+The connection to the server was lost. Attempting reset: Succeeded.
+
+# Подключение восстановилось автоматически, пробуем ещё развернуть
+postgres=# select * from test_table;
+  id   |   example    
+-------+--------------
+ 10000 | first_exmpl
+ 20000 | second_exmpl
+(2 rows)
+
+```
+
+#### проверить, что данные остались на месте
+
+Делаем запрос из хостовой операционной системы
+
+![Подключение из хост ОС](img/check_data.png)
+
+Видно, что данные на месте.
