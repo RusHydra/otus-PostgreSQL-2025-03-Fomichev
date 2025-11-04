@@ -30,7 +30,7 @@ cat ~/.ssh/yc_key.pub # в Windows C:\Users\<имя_пользователя>\.s
 ```
 
 добавить свой ssh ключ в metadata ВМ
-![Выбран ssh ключ](img/ssh.png)
+![Выбран ssh ключ](img/ssh_key.png)
 
 Параметры ВМ:
 ![Первый экран](img/vm_params01.png)
@@ -107,7 +107,14 @@ otus
 - Устанавливаем Midnight Commander 
 
 ```shell
-sudo apt update && sudo apt upgrade -y && sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list' && wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add - && sudo apt-get update && sudo apt-get -y install postgresql && sudo apt install unzip && sudo apt -y install mc
+sudo apt update && \
+sudo apt upgrade -y && \
+sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list' && \
+wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add - && \
+sudo apt-get update && \
+sudo apt-get -y install postgresql && \
+sudo apt install unzip && \
+sudo apt -y install mc
 ```
 
 Смотрим список кластеров в системе:
@@ -237,6 +244,7 @@ postgres=# select * from persons;
 ```
 
 видите ли вы новую запись и если да то почему?
+
 Новая запись не видна во второй сессии, т.к. транзакция на вставку не завершена в первой сессии.
 
 завершить первую транзакцию - commit;
@@ -259,6 +267,7 @@ postgres=*# select * from persons;
 ```
 
 видите ли вы новую запись и если да то почему?
+
 Новая запись отображается во второй сессии, т.к. транзакция на вставку завершена в первой сессии.
 
 завершите транзакцию во второй сессии
@@ -307,6 +316,7 @@ postgres=*# select * from persons;
 ```
 
 видите ли вы новую запись и если да то почему?
+
 Нет, новой записи не видно, т.к. не выполнено завершение транзакции в первой сессии.
 
 завершить первую транзакцию - commit;
@@ -330,6 +340,7 @@ postgres=*# select * from persons;
 ```
 
 видите ли вы новую запись и если да то почему?
+
 Нет, новой записи не видно, т.к. в режиме Repeatable Read видны только те данные, которые были зафиксированы до начала транзакции, и не видны не зафиксированные данные и изменения, произведённые другими транзакциями в процессе выполнения данной транзакции.
 
 завершить вторую транзакцию
@@ -353,4 +364,5 @@ postgres=# select * from persons;
 ```
 
 видите ли вы новую запись и если да то почему?
+
 Да, новая запись видна, т.к. запрос запущен запущен во второй сессии после коммита внесенных изменений в первой сессии.
