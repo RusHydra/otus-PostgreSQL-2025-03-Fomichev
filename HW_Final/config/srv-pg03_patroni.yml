@@ -1,0 +1,55 @@
+scope: pg-cluster
+namespace: /db/
+name: pg-srv03
+
+restapi:
+  listen: 192.168.0.12:8008
+  connect_address: 192.168.0.12:8008
+
+etcd3:
+  hosts:
+    - 192.168.0.10:2379
+    - 192.168.0.11:2379
+    - 192.168.0.12:2379
+
+bootstrap:
+  dcs:
+    ttl: 30
+    loop_wait: 10
+    retry_timeout: 10
+    maximum_lag_on_failover: 1048576
+    postgresql:
+      use_pg_rewind: true
+      parameters:
+        wal_level: replica
+        hot_standby: "on"
+        max_wal_senders: 10
+        max_replication_slots: 10
+        listen_addresses: '127.0.0.1,192.168.0.12'
+  initdb:
+    - encoding: UTF8
+  pg_hba:
+    - host replication replicator 192.168.0.10/32 md5
+    - host replication replicator 192.168.0.11/32 md5
+    - host replication replicator 192.168.0.12/32 md5
+    - host all all 192.168.0.0/24 md5
+
+postgresql:
+  listen: 127.0.0.1,192.168.0.12:5432
+  connect_address: 192.168.0.12:5432
+  data_dir: /var/lib/postgresql/18/main
+  bin_dir: /usr/lib/postgresql/18/bin
+  config_dir: /etc/postgresql/18/main/
+  authentication:
+    replication:
+      username: replicator
+      password: Oracle4U
+    superuser:
+      username: postgres
+      password: Oracle4U
+    pg_rewind:
+      username: postgres
+      password: Oracle4U
+
+tags:
+  nofailover: false
