@@ -5,6 +5,16 @@
 - 3 ВМ для patroni
 - 3 ВМ для postgresql
 
+```
++----------+--------------+
+|   NAME   | INTERNAL IP  |
++----------+--------------+
+| pg-srv01 | 192.168.0.10 |
+| pg-srv02 | 192.168.0.11 |
+| pg-srv03 | 192.168.0.12 |
++----------+--------------+
+```
+
 **Архитектура кластера:**
 ```
 [PostgreSQL Master] [PostgreSQL Replica] [PostgreSQL Replica]
@@ -292,9 +302,9 @@ sudo rm -rf /var/lib/etcd/default
 sudo vi /etc/default/etcd
 ```
 
-- Конфиг на pg-srv01: [`/etc/default/etcd`](config\etcd-1_config)
-- Конфиг на pg-srv02: [`/etc/default/etcd`](config\etcd-2_config)
-- Конфиг на pg-srv03: [`/etc/default/etcd`](config\etcd-3_config)
+- Конфиг на pg-srv01: [`/etc/default/etcd`](config/etcd-1_config)
+- Конфиг на pg-srv02: [`/etc/default/etcd`](config/etcd-2_config)
+- Конфиг на pg-srv03: [`/etc/default/etcd`](config/etcd-3_config)
 
 **После изменения конфигов, выполняем на всех хостах:**
 ```bash
