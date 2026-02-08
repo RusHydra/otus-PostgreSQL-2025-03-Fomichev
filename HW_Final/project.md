@@ -425,7 +425,8 @@ sudo ss -tlnp | grep 5432
 LISTEN 0      200          0.0.0.0:5432      0.0.0.0:*    users:(("postgres",pid=12017,fd=6))
 LISTEN 0      200             [::]:5432         [::]:*    users:(("postgres",pid=12017,fd=7))
 ```
-Postgres cлушает порт 5432 со всех адресов. То что нужно
+Postgres cлушает порт 5432 со всех адресов. То что нужно.
+
 Настройка первой ноды-мастера завершена.
 
 ### 4.2 Настройка postgres на хостах для реплик
@@ -483,9 +484,9 @@ sudo -u postgres /opt/patroni/venv/bin/pip install 'psycopg2-binary'
 sudo mkdir -p /etc/patroni
 sudo vi /etc/patroni/patroni.yml
 ```
-- Конфиг patroni на pg-srv01: [`/etc/patroni/patroni.yml`](config\srv-pg01_patroni.yml)
-- Конфиг patroni на pg-srv02: [`/etc/patroni/patroni.yml`](config\srv-pg01_patroni.yml)
-- Конфиг patroni на pg-srv03: [`/etc/patroni/patroni.yml`](config\srv-pg01_patroni.yml)
+- Конфиг patroni на pg-srv01: [`/etc/patroni/patroni.yml`](config/srv-pg01_patroni.yml)
+- Конфиг patroni на pg-srv02: [`/etc/patroni/patroni.yml`](config/srv-pg01_patroni.yml)
+- Конфиг patroni на pg-srv03: [`/etc/patroni/patroni.yml`](config/srv-pg01_patroni.yml)
 
 **Дадим права на конфиг:**
 ```bash
@@ -555,9 +556,8 @@ sudo -u postgres /opt/patroni/venv/bin/patronictl -c /etc/patroni/patroni.yml li
 
 Кластер запустился, нода pg-srv01 с ролью лидера. Можно стартовать на оставшихся нодах.
 
-❗️Если этом этапе, если возникли проблемы - лучше и проще решать на первой ноде и даже не пытаться запускать patroni на остальных нодах.
+❗️Если этом этапе возникли проблемы - лучше и проще решать их на первой ноде, даже не пытаться запускать patroni на остальных нодах!
 
-Patroni успешно запускает кластер в составе одной ноды, выбирает лидера и готов к подключению реплик. 
 
 **Анализ возможных проблем приведен в последнем разделе документа.**
 
@@ -645,11 +645,13 @@ sudo -u postgres /opt/patroni/venv/bin/patronictl -c /etc/patroni/patroni.yml li
 +----------+--------------+---------+-----------+----+-------------+-----+------------+-----+
 ```
 Лидер pg-srv01, выполним на нём запросы:
+```bash
 sudo -u postgres psql -d otus -c "select * from test"
 sudo -u postgres psql -d otus -c "insert into test values('test10')"
 sudo -u postgres psql -d otus -c "insert into test values('test20')"
 sudo -u postgres psql -d otus -c "select * from test"
 ```
+
 ```console
 INSERT 0 1
 INSERT 0 1
@@ -696,7 +698,7 @@ sudo -u postgres /opt/patroni/venv/bin/patronictl -c /etc/patroni/patroni.yml li
 ```bash
 sudo /opt/patroni/venv/bin/patronictl -c /etc/patroni/patroni.yml switchover
 ```
-```
+```console
 Current cluster topology
 + Cluster: pg-cluster (7604470388804299721) ----+----+-------------+-----+------------+-----+
 | Member   | Host         | Role    | State     | TL | Receive LSN | Lag | Replay LSN | Lag |
@@ -735,7 +737,10 @@ sudo -u postgres /opt/patroni/venv/bin/patronictl -c /etc/patroni/patroni.yml li
 ```
 
 Зараза! Реплика pg-srv01 не не переходит в состояние streaming... 
-На этом этапе решаются проблемы, описанные в разделе "Возможные ошибки". После устранения ошибок, конфликтов и правки конфигов, возвращаемся к проверке режима switchover:
+
+На этом этапе пришлось отвлечаться на решение проблем, описанные в разделе "Возможные ошибки".
+
+После устранения ошибок, конфликтов и правки конфигов, возвращаемся к проверке режима switchover:
 
 ```bash
 yc-user@pg-srv01:~$ sudo -u postgres /opt/patroni/venv/bin/patronictl -c /etc/patroni/patroni.yml list
