@@ -15,9 +15,29 @@
 
 **Архитектура кластера:**
 ```
-[PostgreSQL Master] [PostgreSQL Replica] [PostgreSQL Replica]
-     Patroni           Patroni             Patroni
-      etcd              etcd                 etcd
+	┌─────────────────────────┐ ┌─────────────────────────┐ ┌─────────────────────────┐
+	│        pg-srv01         │ │        pg-srv02         │ │        pg-srv02         │
+	│      192.168.0.10       │ │      192.168.0.11       │ │      192.168.0.10       │
+	│                         │ │                         │ │                         │
+	│  ┌───────────────────┐  │ │  ┌───────────────────┐  │ │  ┌───────────────────┐  │
+	│  │       etcd        │  │ │  │       etcd        │  │ │  │       etcd        │  │
+	│  │      node 1       │  │ │  │      node 2       │  │ │  │      node 3       │  │
+	│  └─────────┬─────────┘  │ │  └─────────┬─────────┘  │ │  └─────────┬─────────┘  │
+	│            │            │ │            │            │ │            │            │
+	│            ◄────────────┼─┼────────────┼────────────┼─┼────────────┘            │
+	│            │            │ │            │            │ │                         │
+	│  ┌───────────────────┐  │ │  ┌───────────────────┐  │ │  ┌───────────────────┐  │
+	│  │      Patroni      │  │ │  │      Patroni      │  │ │  │      Patroni      │  │
+	│  └─────────┬─────────┘  │ │  └─────────┬─────────┘  │ │  └─────────┬─────────┘  │
+	│            │            │ │            │            │ │            │            │
+	│            ▼            │ │            ▼            │ │            ▼            │
+	│  ┌───────────────────┐  │ │  ┌───────────────────┐  │ │  ┌───────────────────┐  │
+	│  │    PostgreSQL     │  │ │  │    PostgreSQL     │  │ │  │    PostgreSQL     │  │
+	│  │      MASTER       │◄─┼─┼──│     REPLICA       │◄─┼─┼──│     REPLICA       │  │
+	│  │     (LEADER)      │  │ │  │                   │  │ │  │                   │  │
+	│  └───────────────────┘  │ │  └───────────────────┘  │ │  └───────────────────┘  │
+	│                         │ │                         │ │                         │
+	└─────────────────────────┘ └─────────────────────────┘ └─────────────────────────┘
 ```
 Для развертывания ВМ будем использовать Yandex.Cloud
 
@@ -974,22 +994,19 @@ sudo -u postgres /opt/patroni/venv/bin/patronictl -c /etc/patroni/patroni.yml li
 | pg-srv03 | 192.168.0.12 | Replica | streaming |  3 |   0/50006A0 |   0 |  0/50006A0 |   0 |
 +----------+--------------+---------+-----------+----+-------------+-----+------------+-----+
 ```
-Проблема в конфигурационном файле patroni.yml на pg-srv02 и pg-srv03. В конфигах отсуствовала секция bootstrap, и не было прописано подключение в 192.168.0.10 в секции pg_hba.
+Проблема в конфигурационном файле patroni.yml на pg-srv02 и pg-srv03. Не было было прописано подключение в 192.168.0.10 в секции pg_hba.
 
-**9.3 Patroni и Postgres читают конфиги из разных мест**
+**9.3 Patroni и Postgres могут читать конфиги из разных мест**
 
-Debian/Ubuntu хранят конфиги PostgreSQL в двух местах:
-/etc/postgresql/18/main/ — для systemd сервиса postgresql
-/var/lib/postgresql/18/main/ — для Patroni и ручного запуска
-
-Patroni создает pg_hba.conf в data_dir (/var/lib/postgresql/18/main/), но PostgreSQL может читать из /etc/postgresql/18/main/
+Для Debian/Ubuntu конфиги PostgreSQL храняться в /etc/postgresql/18/main/
+Если в patroni.yml не указан параметр config_dir, Patroni создает pg_hba.conf в data_dir (/var/lib/postgresql/18/main/), но PostgreSQL может читать только из /etc/postgresql/18/main/
 
 Посмотреть, какой файл используется:
 ```bash
 sudo -u postgres psql -c "SHOW hba_file; SHOW config_file;"
 ```
 
-Решение:
+Решение (костыльное):
 
 **остановить patroni**
 ```bash
@@ -1031,6 +1048,10 @@ sudo -u postgres psql -c "SHOW hba_file; SHOW config_file;"
 - postgres теперь читает конфиги из /etc/, но через симлинки фактически использует файлы из data_dir
 - patroni запустился успешно - реплика работает, WAL streaming идет
 - postgres показывает правильные пути: /etc/postgresql/18/main/pg_hba.conf
+
+Путь с симлинками костыльный. Правильный подход - нужно определится, кто управляет конфигурацией PostgreSQL: 
+- сам patroni на основе секции bootstrap создаёт pg_hba.conf в дата каталоге /var/lib/postgresql/18/main/ и инициализирует кластер Postgres
+- используется конфигурация PostgreSQL из каталога /etc/postgresql/18/main/, в этом случае секция bootstrap не используется, путь к конфигурации задаётся параметром config_dir: /etc/postgresql/18/main/ и работа ведется с существующим кластером postgres.
 
 **9.4 Проблема - patroni не мог подключится к postgres после того, как становился лидером**
 
